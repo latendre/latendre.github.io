@@ -1,0 +1,1789 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html401/loose.dtd">
+<html>
+<!-- Created on October, 22 2006 by texi2html 1.70 -->
+<!--
+Written by: Lionel Cons <Lionel.Cons@cern.ch> (original author)
+            Karl Berry  <karl@freefriends.org>
+            Olaf Bachmann <obachman@mathematik.uni-kl.de>
+            and many others.
+Maintained by: Many creative people <dev@texi2html.cvshome.org>
+Send bugs and suggestions to <users@texi2html.cvshome.org>
+
+-->
+<head>
+<title>RegReg: 1. Overview</title>
+
+<meta name="description" content="RegReg: 1. Overview">
+<meta name="keywords" content="RegReg: 1. Overview">
+<meta name="resource-type" content="document">
+<meta name="distribution" content="global">
+<meta name="Generator" content="texi2html 1.70">
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<style type="text/css">
+<!--
+a.summary-letter {text-decoration: none}
+pre.display {font-family: serif}
+pre.format {font-family: serif}
+pre.menu-comment {font-family: serif}
+pre.menu-preformatted {font-family: serif}
+pre.smalldisplay {font-family: serif; font-size: smaller}
+pre.smallexample {font-size: smaller}
+pre.smallformat {font-family: serif; font-size: smaller}
+pre.smalllisp {font-size: smaller}
+ul.toc {list-style: none}
+-->
+</style>
+
+
+</head>
+
+<body lang="en" bgcolor="#FFFFFF" text="#000000" link="#0000FF" vlink="#800080" alink="#FF0000">
+
+<br>
+<center> <h1 class="titlefont">RegReg 1.1</h1></center>
+<br>
+<br>
+<center><h3> A parser generator based on cascades of tagged regular expressions</h3>
+</center>
+<br>
+
+<center><h3> Mario Latendresse, Last revision October 2006</h3></center>
+
+<a name="SEC_Contents"></a>
+
+<h1>Table of Contents</h1>
+<div class="contents">
+
+<ul class="toc">
+  <li><a name="TOC1" href="#SEC1">1. Overview</a>
+  <ul class="toc">
+    <li><a name="TOC2" href="#SEC2">1.1 An example of a two level parser using TREs</a></li>
+  </ul></li>
+  <li><a name="TOC3" href="#SEC3">2. Describing a parser: syntax and semantics</a>
+  <ul class="toc">
+    <li><a name="TOC4" href="#SEC4">2.1 General structure</a></li>
+    <li><a name="TOC5" href="#SEC5">2.2 Declaring the name of the parser</a></li>
+    <li><a name="TOC6" href="#SEC6">2.3 Macros</a></li>
+    <li><a name="TOC7" href="#SEC7">2.4 Tagged Regular Expressions (TREs)</a></li>
+    <li><a name="TOC8" href="#SEC8">2.5 The parse tree structure</a></li>
+    <li><a name="TOC9" href="#SEC9">2.6 The special &lt;error&gt; token</a></li>
+    <li><a name="TOC10" href="#SEC10">2.7 Parsing ambiguities</a></li>
+    <li><a name="TOC11" href="#SEC11">2.8 The shortest matching rule vs the longest matching rule</a>
+    <ul class="toc">
+      <li><a name="TOC12" href="#SEC12">2.8.1 Examples of the short option</a></li>
+      <li><a name="TOC13" href="#SEC13">2.8.2 Contradictory specifications using <code>short</code></a></li>
+    </ul></li>
+    <li><a name="TOC14" href="#SEC14">2.9 The <code>prefer</code> option</a></li>
+    <li><a name="TOC15" href="#SEC15">2.10 The <code>discard</code> option</a></li>
+    <li><a name="TOC16" href="#SEC16">2.11 Empty string generated twice at level 1</a></li>
+  </ul></li>
+  <li><a name="TOC17" href="#SEC17">3. Generating a parser from a description</a>
+  <ul class="toc">
+    <li><a name="TOC18" href="#SEC18">3.1 Running the compiled RegReg</a></li>
+    <li><a name="TOC19" href="#SEC19">3.2 Running RegReg under a Scheme interpreter</a></li>
+    <li><a name="TOC20" href="#SEC20">3.3 Instantiating a parser from a DFAs vector</a></li>
+  </ul></li>
+  <li><a name="TOC21" href="#SEC21">4. Processing the tagged parse tree</a>
+  <ul class="toc">
+    <li><a name="TOC22" href="#SEC22">4.1 The pre-defined parse tree extraction functions</a></li>
+    <li><a name="TOC23" href="#SEC23">4.2 Examples of tagged parse tree manipulations</a></li>
+  </ul></li>
+  <li><a name="TOC24" href="#SEC24">5. Debugging a parser</a></li>
+  <li><a name="TOC25" href="#SEC25">6. Elaborate RegReg examples: decoding meteorological bulletins</a>
+  <ul class="toc">
+    <li><a name="TOC26" href="#SEC26">6.1 Decoding Terminal Aeorodrome Forecast (TAF) bulletins</a></li>
+    <li><a name="TOC27" href="#SEC27">6.2 Decoding PIlot REPorts (PIREPs)</a></li>
+    <li><a name="TOC28" href="#SEC28">6.3 Decoding AMDARs and ACARs</a></li>
+  </ul></li>
+  <li><a name="TOC29" href="#SEC29">7. Acknowledgements</a></li>
+</ul>
+</div>
+<hr size="1">
+
+<a name="SEC1"></a>
+<h1 class="chapter"> <a href="#TOC1">1. Overview</a> </h1>
+
+<p>RegReg is a lexer/parser--henceforth simply called a parser--generator
+based on the Scheme programming language. The description of the parser is
+a cascade of lexers, each lexer being described by tagged regular
+expressions (TREs). A TRE is a regular expression with bindings allowing
+easy and robust extraction of substrings. We call them <em>tagged</em>
+regular expressions, since tags may identify sub-expressions. RegReg
+is particularly well suited to create parsers where lexical analysis
+is complex and irregular.
+
+</p><p>The particularity to tag a part of a regular expression is an essential
+feature of RegReg. It sets it apart from other tools or languages such
+as Lex, SILex, Perl, Awk, etc. After parsing, these tags appear in the parse
+tree, facilitating extraction of substrings from the matched string.
+
+</p><p>RegReg generates deterministic finite automata (DFA) as one vector. This
+vector is combined with a driver (contained in file
+`<tt>regregDrvr.scm</tt>'), and probably some other Scheme user functions,
+to form a complete Scheme program. When this program is run, let say
+under a Scheme interpreter, it scans the input and creates a tagged
+parse tree as a result--similar but simpler than an XML document.  The
+user specifies a Scheme function to receive this parse tree that can
+easily be manipulated to extract substrings.
+
+</p><p>The tool RegReg is written in the Scheme programming language. It also
+generates Scheme code. You should program the semantics analysis in
+Scheme. 
+
+</p><p>The parser is described solely by TREs which are essentially regular
+expressions. It is therefore not as general as a LALR(1) parser
+generator, such as Yacc or Bison.  On the other hand, it is well suited
+to generate parsers for which the lexical analysis is complex and
+irregular.
+ 
+</p><p>In this document, we assume some familiarity with Scheme. In the next
+section we present a complete example of a parser described by a cascade
+of lexers.
+
+</p><hr size="6">
+<a name="SEC2"></a>
+<h2 class="section"> <a href="#TOC2">1.1 An example of a two level parser using TREs</a> </h2>
+
+<p>Here is an example of a complete RegReg description. This parser breaks
+a text into lines formed by words, some special characters, and numbers.
+
+</p><br>
+<br>
+<table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">(define (process-text r)
+  (display &quot;The resulting parse tree is: &quot;)
+  (write r)
+  r)
+
+(RegReg
+
+  (declare (name example1)) 
+
+  (macros
+    (blank &quot;[ \\010\\013]&quot;))
+
+  (level 1
+     (w  &quot;[A-Za-z]*{l=[A-Za-z]}&quot;)
+     (n  &quot;{f=[1-9]}[0-9]*&quot;)
+     (s  &quot;[-,=]&quot;)
+     (e  &quot;[.;:!]&quot;)
+     (b  &quot;{blank}+&quot;))
+
+  (level 2
+     (line ((+ (? b) (: s w n)) e)))
+
+  (level 3
+     (text (* line)  process-text)))
+</pre></td></tr></table>
+</td></tr></table>
+<p>Note: this example is available in the file `<tt>example1.reg</tt>' in
+directory <code>doc</code>.
+
+</p><p>First, let us focus on one particular feature which makes RegReg more
+valuable than other lexer generators: the binding operator <code>=</code>.
+This is one of the main difference from regular expressions commonly
+used in tools such as Lex, Flex, Perl, Awk, Emacs, etc.
+
+</p><p>The binding operator <code>=</code> associates a symbol, that is a tag, with
+a tagged regular expression (TRE). In the resulting parse tree, this tag
+is associated with a substring--which is represented as a subtree in
+general--that matches this TRE. For example, in the definition of token
+<code>w</code> in level 1, the tag <code>l</code> identifies the last letters of
+every word. In the definition of token <code>n</code>, the tag <code>f</code> is
+bound to the first digit of every number. They are explicit tags. The
+tokens <code>w</code>, <code>n</code>, <code>s</code>, <code>e</code>, <code>b</code>, <code>line</code>,
+and <code>text</code> define implicit tags, so that they
+identify the corresponding tokens. (Note: In the resulting tagged parse
+tree, there are no differences between explicit and implicit tags. They
+are all Scheme symbols associated to a subtree.)
+
+</p><p>A parser description always begin with the symbol <code>RegReg</code>.
+
+</p><p>The first sub-list declares the name of the parser, namely
+<code>example1</code>. It names the vector representing the complete parser.
+
+</p><p>The second sub-list defines the macros used at level 1. Each macro is
+defined by specifying an identifier (a Scheme symbol) and a tagged
+regular expression (TRE). The macro section may contain several
+definitions that may only be referenced by level 1.
+
+</p><p>In this example, there are three levels. A TRE may be described by a mix
+of s-expressions and strings. The level 1 defines TREs based on characters;
+whereas levels 2 and 3 contain TREs based on tokens. Level 2 may only
+refer to tokens defined in level 1; similarly, level 3 may only refer to
+tokens defined in level 2. In general, TREs in level n &gt; 1 may only refer
+to tokens defined in level n-1. TREs in level 1 may refer to macros.
+
+</p><p>A level contains a series of rules. A rule is identified by a Scheme
+symbol, or tag, a TRE and possibly some optional parameters. Possible
+optional parameters are: <code>(short)</code>, and the name of user defined
+function to call when the rule has been selected due to a match. The
+order of those rules is important: in a case of multiple matchings, an
+early rule has precedence over a late one.
+
+</p><p>The general structure of the parser is at level 3. It defines only one
+token, namely <code>text</code>. It is formed by a series of <code>line</code>. 
+The last level, in this case 3, drives the whole parsing process. The
+parser is described by the last level, and it relies on the previous
+level for its tokens; similarly, the next to last level relies on
+its previous level, etc.
+
+</p><p>Level 2 gives the structure of a <code>line</code>. A line is a series of
+words, numbers or special characters, probably separated by
+<code>blank</code>s, and terminated by an end mark.
+
+</p><p>In this example, level 2 and 3 use only s-expressions to describe the
+TREs. Level 1 uses only the string form. Actually any level can specify
+TREs as strings, s-expressions or a mix of both. This two different
+syntaxic forms are provided for convenience.  (Note: in level 2 and up
+it is not possible to refer to individual characters. This is only
+possible at level 1.)
+
+</p><p>For this particular example, the function <code>process-text</code> is called
+when all lines have been read. Such a function may appear for each token
+in any level (but not in the macros section). These users functions may
+be defined in the parser description file before the RegReg s-expression
+like this example. If no user defined function is provided, the
+resulting parse tree is returned.
+
+</p><p>Parsing the string <code>&quot;There are 6 words in this sentence. A second
+line.&quot;</code>  result in the tagged parse tree: (this tree is passed to
+<code>process-text</code> which is specified in the description; it would be
+the resulting parse tree if no function is called)
+
+</p><table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">(text 
+  ((line 
+     (((()      (w ((&quot;Ther&quot;) (l &quot;e&quot;)))) 
+       ((b &quot; &quot;) (w ((&quot;ar&quot;) (l &quot;e&quot;))))
+       ((b &quot; &quot;) (n ((f &quot;6&quot;) ()))) 
+       ((b &quot; &quot;) (w ((&quot;word&quot;) (l &quot;s&quot;)))) 
+       ((b &quot; &quot;) (w ((&quot;i&quot;) (l &quot;n&quot;)))) 
+       ((b &quot; &quot;) (w ((&quot;thi&quot;) (l &quot;s&quot;)))) 
+       ((b &quot; &quot;) (w ((&quot;sentenc&quot;) (l &quot;e&quot;))))) (e &quot;.&quot;))) 
+   (line 
+     ((((b &quot; &quot;) (w (() (l &quot;A&quot;)))) 
+       ((b &quot; &quot;) (w ((&quot;secon&quot;) (l &quot;d&quot;)))) 
+       ((b &quot; &quot;) (w ((&quot;lin&quot;) (l &quot;e&quot;))))) 
+       (e &quot;.&quot;)))))
+</pre></td></tr></table>
+</td></tr></table>
+<p>The tag <code>text</code> is associated to two lines  as
+described by the list of two elements next to the tag itself. The lines
+are formed by a list of several tokens. Each word is tagged by <code>w</code>,
+the number 6 by <code>n</code>, the blanks by <code>b</code> and the special
+characters <code>.</code> by <code>e</code>. The tags <code>l</code> always identify the
+first letters and the tag <code>f</code> the first digit. The first empty list
+<code>()</code> is due to the absence of a blank token at the beginning of the
+first line. The empty list for the first word in the second line is due
+to the short word 'A'; it only has a last letter. Similarly, the number
+has only a first digit.
+
+</p><p>The function <code>process-text</code> is called with this parse tree as an
+argument. It is then up to the user defined function to process the
+parse tree appropriately.
+
+</p><p>The user function can do whatever it pleases. However, if this function
+is used at an intermediate level, it should return a list of two
+elements: a tag (a Scheme symbol) and the value of that tag. (Note: The
+identity function does just that.) This is necessary since the parser
+depends on this value to continue processing. Otherwise the parser may
+fail aborting parsing. If the user function is used at the last level,
+the returned value can be anything.
+
+</p><p>Some general functions are provided to easily extract the subtrees and
+substrings of the tagged parse tree. Consult the section 'Processing the
+tagged parse tree'.
+
+</p><hr size="6">
+<a name="SEC3"></a>
+<h1 class="chapter"> <a href="#TOC3">2. Describing a parser: syntax and semantics</a> </h1>
+
+<hr size="6">
+<a name="SEC4"></a>
+<h2 class="section"> <a href="#TOC4">2.1 General structure</a> </h2>
+
+<p>The general structure of a file describing a RegReg parser is a series
+of Scheme expressions (may be empty), an s-expression whose head is the
+symbol <code>RegReg</code>, and more Scheme expressions (may be empty).  This
+should be contained in a file with extension `<tt>.reg</tt>'.
+
+</p><p>The description of a RegReg parser is a Scheme s-expression made of
+multiple sub-expressions.  It must begin with the symbol <code>RegReg</code>
+and the declaration of the name of the parser with <code>(declare (name
+</code><var>s</var><code>))</code> where <var>s</var> is a Scheme symbol.
+
+</p><table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">(define (proc-first r)
+  (display &quot;proc-first received tagged parse tree: &quot;)
+  (write r) (newline)
+  r)
+
+(define (proc-file r)
+  (display &quot;proc-file received tagged parse tree: &quot;)
+  (write r) (newline)
+  r)
+
+(RegReg
+  (declare (name e1))
+  (macros
+      (integer &quot;[0-9]+&quot;)
+      (word    &quot;[A-Za-z]+&quot;))
+  (level 1
+      (firstline &quot;BEGIN\\010&quot; (short) proc-first)
+      (end       &quot;END&quot;        (short))
+      (line      &quot;( {integer}| {word}|[ ])+\\010&quot;))
+  (level 2
+      (file &quot;firstline line+ end&quot; proc-file)))
+</pre></td></tr></table>
+</td></tr></table>
+<p>Note: this description is in file `<tt>e1.reg</tt>', in directory
+`<tt>doc</tt>'.  There are spaces before <code>integer</code> and <code>word</code>
+tokens in the definition of token <code>line</code>; these are significant
+spaces to be matched during parsing.
+
+</p><p>The main part is formed by the macros section, if any, and the level
+sections (aka rules sections). At least one level section must be
+present. Each level section is an s-expression identifying its level
+number and its series of rules. The level sections must be numbered from
+1 to n, where n is the number of such sections. They can be specified in
+any order which has no significance.
+
+</p><p>The last level defines the whole parser; in a sense it drives the whole
+parsing process. It relies on the previous level for its tokens; and
+this previous level relies on its previous level, etc. In this example,
+level 2 drives the parsing process by using level 1.
+
+</p><p>The file containing the RegReg s-expression may contain other
+s-expressions before and after the <code>RegReg</code> s-expression. These
+s-expressions are reproduced verbatim in the generated file of the
+parser before and after the vector that describes it. 
+
+</p><p>The s-expressions appearing before the RegReg one can be the user
+defined functions specified in the parser description. The names
+<code>proc-first</code> and <code>proc-file</code> are user defined
+functions. Therefore, these may appear before the RegReg description.  If
+the generated parser file is loaded in a Scheme interpreter, the vector
+defining the parser would correctly refer to those functions.
+
+</p><p>The s-expressions after the RegReg one can be expressions to execute
+when the parser is loaded in a Scheme interpreter. The test files in
+directory <code>test</code> use this approach to verify the generated
+parsers.
+
+</p><hr size="6">
+<a name="SEC5"></a>
+<h2 class="section"> <a href="#TOC5">2.2 Declaring the name of the parser</a> </h2>
+
+<p>Any RegReg parser description must have a declaration of its name. This
+is independent of the name of the file containing the description.
+
+</p><p>It has the following syntax: <code>(declare (name</code> <var>id</var><code>))</code>
+where the identifier <var>id</var> must be a valid Scheme symbol. 
+
+</p><p>The declaration may appear anywhere in the RegReg s-expression. It is
+used by the <code>regreg</code> generator to name the vector containing the
+DFAs. The resulting name is <var>id</var><code>-dfas</code>. It is essential to
+know this name as you must use it to instantiate your parser.
+
+</p><p>It is your responsibility to chose an <var>id</var> such as to avoid any
+name clashes in your resulting Scheme code.
+
+</p><hr size="6">
+<a name="SEC6"></a>
+<h2 class="section"> <a href="#TOC6">2.3 Macros</a> </h2>
+
+<p>The <code>macros</code> section is a series of definition of macros. It is
+optional. A macro definition is a list formed by an identifier, that is
+its name, and a TRE.  A macro may be referred, using braces <code>{}</code>
+around its name, by other TREs defined only in the macros section and
+level 1. They cannot be used in level 2 and up, since macros describe
+strings of characters, not tokens. The purpose of macros is to reduce
+the length of TREs defined at level 1.
+
+</p><p>A macro must be defined before it is referenced--recursive
+definitions are not permitted. They must also be unique, no two
+macros may be named the same.
+
+</p><p>The name of a macro must be a valid Scheme symbol using only letters,
+digits, dash '<code>-</code>' and underscore '<code>_</code>'.
+
+</p><hr size="6">
+<a name="SEC7"></a>
+<h2 class="section"> <a href="#TOC7">2.4 Tagged Regular Expressions (TREs)</a> </h2>
+
+<p>A tagged regular expression (TRE) is specified as a string, an
+s-expression, or a mix of both. If it is specified using an
+s-expression, only the leaf can be strings. This dual syntax helps
+for readability and brevity.
+
+</p><p>A TRE is essentially a regular expression; a new binding operator
+<code>=</code> is available to identify parts of the regular expression; which
+results in a tagged regular expressions. 
+
+</p><p>In TREs specified in level 2 and up, it is not possible to directly
+refer to characters. This is only allow in level 1 and macros. In level
+2 and up, TRE are built by referring to tokens from the previous level.
+
+</p><p>Here is an informal description of the syntax and semantics of TREs.
+
+</p><ol>
+<li><p> In a string, a single character matches itself to the exception of the
+special characters used as operators and described in this section. The
+special characters are: <code>.(){}[]?+*\</code>. To specify a special
+character as itself you must escape it using a backslash <code>\</code>. The
+binding operator <code>=</code> is not special in general, except right after
+an identifier between braces. So, the string <code>&quot;A&quot;</code> matches 'A'.  In
+most cases a series of characters, as in <code>&quot;ABC&quot;</code>, are specified:
+this is actually using the concatenation operation on individual
+characters. Characters can also be specified, in s-expressions, using
+the Scheme syntax <code>#\</code> or other forms available in the Scheme
+implementation used.
+
+</p></li><li><p> Concatenation is specified either by juxtaposition in a string
+or as a list in an s-expression. For example, <code>&quot;ABC&quot;</code> matches
+<code>&quot;ABC&quot;</code>; <code>(&quot;A&quot; &quot;B&quot; &quot;C&quot;)</code> and <code>(#\A #\B &quot;C&quot;)</code> matches
+same. The empty list <code>()</code> or empty string <code>&quot;&quot;</code> represent a TRE
+matching the empty string. For brevity's sake, operators <code>+</code>,
+<code>?</code>, <code>=</code>, and <code>*</code> provide an implicit concatenation, in
+s-expressions, when more than one sub-TREs are specified. See their
+description below.
+
+</p></li><li><p> In level 2 and up, the basic element is the token. For example,
+the TRE <code>(blank word blank)</code> describes a TRE matching tokens
+<code>blank</code>, <code>word</code>, and <code>blank</code>, in that order. The string
+<code>&quot;blank word blank&quot;</code> specifies the same TRE. After level 1, all
+TREs are based on tokens; so a series of characters at these level do
+not refer to characters but token names.
+
+</p></li><li><p> The backslash <code>\</code> is an escape character and can be used to 
+represent an operator as itself; for example <code>&quot;\\?\\+&quot;</code> matches the
+string <code>&quot;?+&quot;</code>. (Note: in a Scheme string, the backslash <code>\</code> is
+already an escape character. It must be doubled to specify one
+backslash.)  In particular <code>&quot;\\.&quot;</code> matches a dot, not any
+character.  To specify a backslash, two should be specified, which means
+that four must be written in a Scheme string; hence, the TRE
+<code>&quot;\\\\&quot;</code> matches a single backslash. The backslash must be used to
+specify non-printable characters: it is followed by at most three digits
+specifying, in decimal, the 8 bits ASCII code of that character. For
+example, <code>&quot;\\013&quot;</code> describes the return character. (Note: it is
+assumed that your Scheme implementation uses 8 bits ASCII code for the
+primitive <code>integer-&gt;char</code> and <code>char-&gt;integer</code>. This is not
+part of the R5RS standard.). A non-special character that follows a
+backslash simply stands for itself. You can therefore escaped any
+character even though it does need to. The backslash notation is
+strictly for level 1 and the macros section.
+
+</p></li><li><p> Square brackets <code>[]</code> describe a set of characters; it
+matches one character of that set. Inside the square parentheses a
+series of single characters or range of characters can be specified. The
+only special characters are <code>-</code>, <code>^</code>, and '<code>]</code>'. Other
+characters (e.g. <code>.</code>, <code>?</code>, etc.) are not special. They can be
+escaped with a backslash, but that is not necessary. A range of
+characters is specified by using a dash; for example, <code>&quot;[A-Za-z]&quot;</code>
+is the set of all letters. The complement of a set is specified by
+<code>^</code> as the first character; for example, <code>&quot;[^0-9]&quot;</code> is the set
+of non-digit characters; <code>&quot;Begin[ A-Z]+End&quot;</code> matches the string
+<code>&quot;Begin Hello End&quot;</code>. The backslash can still be used to specify
+non-printable characters. For example, <code>&quot;[01\\010\\\\]&quot;</code> matches
+either <code>&quot;0&quot;</code>, <code>&quot;1&quot;</code>, a newline, or a backslash. Range and set
+of characters can be specified in s-expressions using the operators
+<code>::</code> (in set), <code>!::</code> (not in set), <code>..</code> (in range), and
+<code>!..</code> (not in range). For example <code>(.. #\a #\z)</code> is equivalent
+to <code>&quot;[a-z]&quot;</code>; <code>(!.. #\0 #\9)</code> is equivalent to
+<code>&quot;[^0-9]&quot;</code>; <code>(:: #\a #\e #\i #\o #\u)</code> is equivalent to
+<code>&quot;[aeiou]&quot;</code>. The brackets notation is strictly for level 1 and the
+macros section.
+
+</p></li><li><p> The dot character <code>.</code> is equivalent to <code>&quot;[^\\010]&quot;</code>; that
+is any character except a newline. For example, <code>&quot;...&quot;</code> matches any
+string of length three without a newline; <code>&quot;.*&quot;</code> matches any string
+without a newline. If a dot appears between square brackets, it
+specifies itself, not any character; so the TRE <code>&quot;[.]&quot;</code> is
+equivalent to <code>&quot;\\.&quot;</code> which matches only a single dot. The
+dot notation is strictly for level 1 and the macros section.
+
+</p></li><li><p> In a string specification, pair of parentheses <code>()</code> modify
+operators precedence and form only one TRE. They allow TRE
+sub-expressions grouping. (Note: do not confuse parentheses being used
+in s-expressions and the parentheses to group TRE sub-expressions in a
+string. Precedence is always explicitly stated in s-expressions. )
+
+</p></li><li><p> Curly braces <code>{}</code>, specified in a string, refer to a
+macro or specify a binding. The form <code>&quot;{</code><var>s</var><code>}&quot;</code> refers
+to the macro <var>s</var>. The form <code>&quot;{</code><var>s</var><code>=</code><var>e</var><code>}&quot;</code>
+specifies a binding between the tag (aka symbol) <var>s</var> and the
+matching string for TRE <var>e</var>. For example, <code>&quot;{blank}&quot;</code> refers
+to a macro named <code>blank</code> (defined in the macros section);
+<code>&quot;{i=[0-9]+}[.]{f=[0-9]+}&quot;</code> matches some decimal numbers and
+binds the integral part to <code>i</code> and fractional part to
+<code>f</code>. The braces notation can be used in any level. Note that
+tags do not have to be unique - it is up to the semantics analysis
+to make sense of non-unique tags.
+
+</p></li><li><p> Operator <code>=</code> in an s-expression specifies a binding. It has
+the same function as used in curly braces. The first argument is an
+identifier. The second argument is a TRE; or there is a list of TREs, in
+which case an implicit concatenation is assumed between them to form
+only one TRE. For example, the TRE <code>(= f &quot;[0-9]&quot;)</code> binds <code>f</code>
+to the substring matching <code>&quot;[0-9]&quot;</code>; the TRE <code>(= r first
+second third)</code> binds <code>r</code> to the subtree matching <code>(first
+second third)</code> where <code>first</code>, <code>second</code> and <code>third</code>
+are assumed to be macros or tokens.
+
+</p></li><li><p> Operator <code>?</code> applied to a TRE matches the empty string or that
+TRE; for example <code>&quot;CLE?A?R&quot;</code> matches the strings <code>&quot;CLR&quot;</code>,
+<code>&quot;CLER&quot;</code>, <code>&quot;CLAR&quot;</code>, and <code>&quot;CLEAR&quot;</code>. It can be applied to a
+more complex TRE as in <code>&quot;(KT)?&quot;</code> which matches <code>&quot;KT&quot;</code> or the
+empty string. It can be specified using an s-expression as in <code>(?
+&quot;KT&quot;)</code>. For an s-expression, the number of arguments can be greater than
+one; in such a case an implicit concatenation is applied to the list of
+arguments. For example, <code>(? one two three)</code> is equivalent to
+<code>(? (one two three))</code>. This operator can be used in any level.
+
+</p></li><li><p> Operator <code>+</code> applied to a TRE matches one or several times
+that TRE. For example, <code>&quot;BA+B&quot;</code> matches <code>&quot;BAAAB&quot;</code> but not
+<code>&quot;BB&quot;</code>. It can be applied as an s-expression as in <code>(+ &quot;OH!&quot;)</code>
+which, for instance, matches <code>&quot;OH!OH!OH!&quot;</code>. If more than one
+sub-TREs are specified, an implicit concatenation is assumed. For
+example, <code>(+ (?  &quot;A&quot;) &quot;B&quot;)</code> is equivalent to <code>(+ ((? &quot;A&quot;)
+&quot;B&quot;)))</code> which matches <code>&quot;AB&quot;</code>, <code>&quot;BBBB&quot;</code>, <code>&quot;ABABB&quot;</code>,
+etc. This operator can be used in any level.
+
+</p></li><li><p> Operator <code>*</code> applied to a TRE matches zero or several times
+that TRE. For example, <code>&quot;A*&quot;</code> matches the empty string,
+<code>&quot;A&quot;</code>, <code>&quot;AA&quot;</code>, etc. It can be specified using an s-expression
+as in <code>(* &quot;A&quot;)</code> which is equivalent to <code>&quot;A*&quot;</code>. If more than
+one sub-TREs are specified, an implicit concatenation is assumed. For
+example, <code>(* (: &quot;A&quot; &quot;B&quot;) &quot;C&quot;)</code> is equivalent to <code>(* ((:
+&quot;A&quot; &quot;B&quot;) &quot;C&quot;))</code> and <code>&quot;((A|B)C)*&quot;</code>. This operator can be used in any level.
+
+</p></li><li><p> The operator <code>|</code>, specified in a string, 
+between TREs, matches if one of its TRE matches (this is also known as
+the 'or' operator). It has a lower precedence than
+concatenation. Therefore, the TRE <code>&quot;abc|def|hfg&quot;</code> matches
+<code>&quot;abc&quot;</code>, <code>&quot;def&quot;</code> or <code>&quot;hfg&quot;</code>; nothing else. It can be
+specified as an s-expression by using <code>:</code> as in <code>(: &quot;abc&quot;
+&quot;def&quot; &quot;hfg&quot;)</code>. (Note: of course, in the case of <code>:</code>, more than one
+sub-TREs does not imply an implicit concatenation.). This operator can
+be used in any level.
+
+</p></li></ol>
+
+<p>Note: specified as a string, each operator <code>?</code>,
+<code>*</code> and <code>+</code> applies to the immediate preceding TRE; for
+example <code>&quot;a|b+&quot;</code> matches the string <code>&quot;bbb&quot;</code> but not
+<code>&quot;ababa&quot;</code>. Parentheses change this behavior as in <code>&quot;(a|b)+&quot;</code>
+which matches, for example, <code>&quot;ababa&quot;</code>.
+
+</p><p>Note that tagged regular expressions can be entirely specified as a
+string or as an s-expression, or a combination of both.
+
+</p><p>For example the TRE
+<code>&quot;{i=[0-9]+}\\.{f=[0-9]*}[]*((E|e){e=[-+]?[0-9]+})?&quot;</code>  
+is equivalent to
+
+</p><table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">((= i &quot;[0-9]+&quot;) #\. 
+ (= f &quot;[0-9]*&quot;) &quot;[ ]*&quot; 
+ (? (: &quot;E&quot; &quot;e&quot;) (= e &quot;[-+]?[0-9]+&quot;)))
+</pre></td></tr></table>
+</td></tr></table>
+<p>The dot character '.' is specified as a character, i.e. <code>#\.</code>, whereas the
+exponent characters &quot;E&quot; and &quot;e&quot; are specified as strings. There is no
+difference, although the dot when specified as a string must be escaped
+as in <code>&quot;\\.&quot;</code>. You can use file `<tt>test4.reg</tt>' in directory
+`<tt>test</tt>' to try out this example.
+
+</p><hr size="6">
+<a name="SEC8"></a>
+<h2 class="section"> <a href="#TOC8">2.5 The parse tree structure</a> </h2>
+
+<p>This section presents further details on the structure of the parse tree
+constructed by RegReg when a string matches a regular expression.
+
+</p><p>Essentially, the structure of the parse tree corresponds to the
+structure of the regular expression. Also, all defined tags using the
+equal sign operator (e.g., <code>{l=[0-9]+}</code>) that appears in the
+regular expression matched appears also in the parse tree. These tags
+may repeat in the parsed tree even though they do not repeat in the
+regular expression.  These repetitions are due to the operators <code>+</code>
+and <code>*</code>. (Note: you may also repeat the tags in the regular
+expression.  This is up to your semantics analysis to make sense of
+these repetitions in the parse tree.)
+
+</p><p>In general the parse tree is a list of lists for which the leaves
+are strings and symbols. The strings can only be formed by strings
+coming from the input. The symbols can only be tags.
+
+</p><p>At level 1, the generated tree is either a string of length 0 or 1
+(e.g. <code>&quot;a&quot;</code>) , a singleton list of a string of length greater than
+1 (e.g. <code>(&quot;xyz&quot;)</code>), a list of two elements the first one being a
+symbol (a tag) and the second one a string of any length (e.g. <code>(l
+&quot;98&quot;)</code>); or a list of these. The first case occurs for a matched regular
+expression without a tag which matched exactly 0 or 1 character; the
+second case occurs for a matched regular expression without a tag which
+matched two or more characters. The third case occurs when the matched
+regular expression is tagged by exactly one tag. The fourth case occurs when the
+matched regular expression has two or more tags, or part of the matched
+regular expression has at least one tag whilst other parts are untagged.
+ 
+</p><p>Level 2 constructs a parse tree from trees generated at level 1;
+similarly, level 3 constructs a parse tree from trees generated at level
+2 - and so on. No further new character strings are generated from
+level 2 and up. The concatenation and repeat operators <code>*</code> and
+<code>+</code> generate lists of trees.
+
+</p><p>Notice the peculiar result for operator <code>?</code> with a tag embedded in
+a matching regular expression: the empty list will be given if the
+sub-expression under <code>?</code> did not contribute to the match. For
+example, for the TRE <code>{a=[A-Z]}{d=[0-9]}?{b=[A-Z]}</code> matching
+the string <code>&quot;AB&quot;</code>, the resulting parse tree is <code>((a &quot;A&quot;) (d
+()) (b &quot;B&quot;))</code>. The tag <code>d</code> is associated to an empty list, i.e. an
+empty tree, since no digit is in <code>&quot;AB&quot;</code>.
+
+</p><hr size="6">
+<a name="SEC9"></a>
+<h2 class="section"> <a href="#TOC9">2.6 The special &lt;error&gt; token</a> </h2>
+
+<p>Any rule section may define the special token <code>&lt;error&gt;</code>. Such a definition
+specify a function to call when no rule of the section matches the
+input. The function has two arguments, the first one being the list of
+tokens active when the last character or token was read, the second one
+is the list of tokens or the string of characters read so far.
+
+</p><p>Let us assume the following RegReg description.
+
+</p><table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">(define (out-rules1-error rule-ids s)
+    ;; Caught a parsing error; fake a time token.
+   `(time ,s))
+
+(define (out-rules2-error rule-ids r)
+   (display &quot;Error: &quot;) 
+   (display (list rule-ids r)) (newline)
+   r)
+
+(define (out-line r)
+  (display &quot;Tagged parse tree is: &quot;)(write r) (newline)
+  r))
+
+(RegReg 
+  (declare (name out))
+  (level 1
+     (time    &quot;{h=[0-9][0-9]}{m=[0-9][0-9]}Z&quot;)
+     (blank   &quot;[ ]+&quot;)
+     (dot     &quot;\\.&quot;)
+     (&lt;error&gt; out-rules1-error))
+  (level 2
+     (line     ((+ time blank) dot) out-line)
+     (&lt;error&gt;  out-rules2-error)))
+</pre></td></tr></table>
+</td></tr></table>
+<p>Note: this description is available in file `<tt>out.reg</tt>' in 
+directory `<tt>doc</tt>'.
+
+</p><p>The special token <code>&lt;error&gt;</code> in level 1 specifies the user
+defined function <code>out-rules1-error</code>. It will be called by the
+RegReg driver when no basic token can be recognized. Similarly, in level
+2, the function <code>out-rules2-error</code> must be called when no rule is
+recognized at that level. The function <code>out-line</code> is called when
+parsing is successful.
+
+</p><p>Note that <code>out-rules1-error</code> receives a string for argument
+<code>s</code>; whereas <code>out-rules2-error</code> receives a list of tokens for
+<code>r</code>.  The function <code>out-rules1-error</code> returns a list with the
+tag <code>time</code> as head. It other words it fakes the recognition of a
+<code>time</code> token. An error function, from an intermediate level, may
+return whatever it sees fit to correct the parsing, but it should return
+a list for which the head is a symbol identifying a rule. Such a
+function returns to the parser; whereas an error function for the last
+level does not.
+
+</p><p>If the string <code>&quot;1020 2034Z&quot;</code> is parsed, an error occurs at level 1
+as there is no 'Z' following '1020'. The current active list of rules is
+<code>(time)</code> and the string of characters is <code>&quot;1020 &quot;</code>. Therefore,
+the function <code>out-rules1-error</code> receive these two values. The error
+function may analyze the list of active rules and the string to take
+corrective action. In this example, it simply fakes the token
+<code>time</code> to continue processing. This is acceptable for level 2. The
+next call to level 1 returns a correctly parsed <code>time</code> token. But,
+this fails at level 2, since a blank is expected. The function
+<code>out-rules2-error</code> receives the list <code>((time &quot;1020 &quot;) (time
+((h (&quot;20&quot;)) (m (&quot;34&quot;)) &quot;Z&quot;))))</code> and the rule-ids is <code>(line)</code>. This
+error function simply display an error message.
+
+</p><p>If the string <code>&quot;1020Z 2034Z&quot;</code> is parsed, an error occurs at level 2
+as there is no blank and dot following '2034Z'. In that case, the
+function <code>out-rules2-error</code> receives the list of rule-ids
+<code>(line)</code> for parameter <code>rule-ids</code> and the list <code>((time
+((h (&quot;10&quot;)) (m (&quot;20&quot;)) &quot;Z&quot;)) (blank (&quot; &quot;)) (time ((h (&quot;20&quot;)) (m (&quot;34&quot;))
+&quot;Z&quot;)))</code> for parameter <code>r</code>.
+
+</p><hr size="6">
+<a name="SEC10"></a>
+<h2 class="section"> <a href="#TOC10">2.7 Parsing ambiguities</a> </h2>
+
+<p>Parsing ambiguities may exist in some TRE specifications. For example,
+the TRE <code>&quot;{x=[0-9]}?{y=[0-9]}?&quot;</code> is ambiguous when parsing a
+single digit: should it be bound to <code>x</code> or <code>y</code>? RegReg neither
+refuses this TRE nor does it warn of its ambiguity. Yet, this ambiguity
+may not cause any problem. The user code extracting <code>x</code> and <code>y</code>
+should take care of this ambiguity, e.g., search for the tags
+<code>x</code> and <code>y</code> and act accordingly.
+
+</p><hr size="6">
+<a name="SEC11"></a>
+<h2 class="section"> <a href="#TOC11">2.8 The shortest matching rule vs the longest matching rule</a> </h2>
+
+<p>A TRE can be qualified as <em>short</em> by specifying <code>(short)</code>
+after the specification of the regular expression - this is a short
+TRE. By default the driver matches the longest string but a short TRE
+matches the shortest one, that is as soon as an accepting state is
+reached.
+
+</p><p>Although this is not certain, the specification of short TREs can reduce
+the size of the corresponding DFA. It definitely does not slow down the
+parser.  Essentially, the <code>(short)</code> option forces the driver to
+stop and accept the string as soon as a DFA final state (aka accepting
+state) is reached. The implementation of that feature is simple: any out
+transition of a final DFA node corresponding to a regular expression
+qualified as short is eliminated.
+
+</p><p>If two regular expressions qualified as short match a string, the first
+declared one is the preferred one.
+
+</p><hr size="6">
+<a name="SEC12"></a>
+<h3 class="subsection"> <a href="#TOC12">2.8.1 Examples of the short option</a> </h3>
+
+<p>Assume the following parser description
+
+</p><table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">(define (store-text r)
+  (display &quot;Received the tagged parse tree: &quot;) 
+  (write r) 
+  (newline)
+  r)
+
+(RegReg
+   (declare (name exampleShort))
+   (level 1 
+      (begin  &quot;BEGIN&quot;          (short))
+      (end    &quot;END&quot;            (short))
+      (any    &quot;[a-zA-Z0-9_]+&quot;)
+      (blank  &quot;[ \\010\\013]+&quot;))
+   (level 2
+      (text (begin (? blank) (+ any blank) end) store-text)))
+</pre></td></tr></table>
+</td></tr></table>
+<p>Note: this description is available in file `<tt>exampleShort.reg</tt>'
+in directory `<tt>doc</tt>'.
+
+</p><p>Two TREs use the short qualification, namely <code>&quot;BEGIN&quot;</code> and
+<code>&quot;END&quot;</code>. They do so to recognize substrings prefixed by 'BEGIN' and
+'END' as tokens <code>begin</code> and <code>end</code>, respectively, and not as
+token <code>any</code>.
+
+</p><p>For example, parsing <code>&quot;BEGINHELLO ENDEND&quot;</code> does produce the parse
+tree 
+
+</p><table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">(text ((begin (&quot;BEGIN&quot;)) 
+       () 
+       (((any (&quot;HELLO&quot;)) (blank (&quot; &quot;)))) 
+       (end (&quot;END&quot;))))
+</pre></td></tr></table>
+</td></tr></table>
+<p>If the two tokens <code>begin</code> and <code>end</code> were not qualified with
+<code>(short)</code>, that string would not have matched; the token <code>any</code>
+would have been the longest match for 'BEGINHELLO' resulting in a
+parsing error at level 2 where the token <code>begin</code> is expected at the
+beginning.
+
+</p><p>Note: the string <code>&quot;BEGINHELLOENDEND&quot;</code> would not be recognized as
+the substring 'HELLOENDEND' would be perceived as a token <code>any</code>.
+
+</p><hr size="6">
+<a name="SEC13"></a>
+<h3 class="subsection"> <a href="#TOC13">2.8.2 Contradictory specifications using <code>short</code></a> </h3>
+
+<p>It is possible that the use of <code>short</code> contradicts a TRE
+specification. For example, if a short option is applied to the TRE
+<code>&quot;[0-9]+&quot;</code>, it no longer matches a series of digits but only
+one. In that case, the <code>+</code> operator is redundant: the TRE
+should have been specified as <code>&quot;[0-9]&quot;</code>.
+
+</p><p>The TRE <code>&quot;[0-9]+A&quot;</code> does not have this problem since the ending is
+not of variable length. In general, a TRE that has a variable length
+ending should not be qualified as <code>short</code>. Either, the TRE is
+wrongly specified or the longest matching rule should be used without
+specifying the <code>(short)</code> option.
+
+</p><hr size="6">
+<a name="SEC14"></a>
+<h2 class="section"> <a href="#TOC14">2.9 The <code>prefer</code> option</a> </h2>
+
+<p>Another way to control the matching mechanism is to use the option
+<code>prefer</code>. It cannot be used with <code>short</code>, but can replace it.
+
+</p><p>Here is a complete  example.
+
+</p><table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">(define (fId r)
+   (display &quot;This is an Id parse tree:&quot;)
+   (display r)
+   (newline)
+   r)
+
+(RegReg
+  (declare (name examplePrefer))
+  (level 1
+    (Id   &quot;[a-zA-Z][a-zA-Z]*&quot; (prefer) fId)
+    (tk   &quot;[^ \\010\\013]+&quot;)
+    (_    &quot;[ \\010\\013]+&quot;))
+  (level 2
+    (file (* (: tk _ Id)))))
+  
+(parse-string &quot;One, 12No two34 ;;; three.&quot; examplePrefer-dfas)
+</pre></td></tr></table>
+</td></tr></table>
+<p>If this code is compiled by RegReg and executed, there will
+be three output lines, one for each Id: `<code>One</code>', `<code>two</code>',
+and `<code>three</code>'. The <code>prefer</code> qualifier forces the identification
+of sequences of letters as <code>Id</code>; without this qualifier
+no <code>Id</code> would be found but only <code>tk</code>. Note, though,
+that `<code>12No</code>' is still recognized as <code>tk</code>, not <code>Id</code>.
+
+</p><p>The <code>short</code> qualifier does not work for this case, since
+it would be a contradictory specification: only the first letter
+of an identifier would be recognized as an <code>Id</code>.
+
+</p><p>The <code>prefer</code> qualifier as the following semantics. When scanning, if
+at least one accepting state of a prefer TRE is reached, all non-prefer
+TREs are disregarded until the match is completed; and all prefer TREs
+which are lower than the highest accepting prefer TREs are also
+disregarded. (Note: TREs are ordered according to the definition order:
+the first ones are higher.) 
+
+</p><p>The use of <code>prefer</code> does not slow down the parser. It may
+increase or decrease the parser automata.
+
+</p><hr size="6">
+<a name="SEC15"></a>
+<h2 class="section"> <a href="#TOC15">2.10 The <code>discard</code> option</a> </h2>
+
+<p>The discard option applied to a regular expression forces the driver not
+to build the parse tree once a match has been found.
+
+</p><p>For example, the <code>discard</code> option for <code>blank</code> avoids the construction
+of parse tree for all recognized sequences of spaces, line feeds,
+returns and tabs:
+</p><table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">(RegReg
+  (declare (name exampleDiscard))
+
+  (level 1 
+    (blank  &quot;[ \\010\\013\\009]+&quot; (discard))
+    (word   &quot;[^ \\010\\013\\009]+&quot;))
+
+  (level 2
+    (file   (+ (: word (? blank))) (discard))))
+</pre></td></tr></table>
+</td></tr></table>
+<p>A function can still be specified to process the result of a match for a
+regular expression qualified with <code>discard</code>, but the parse tree passed to
+that function is empty.
+
+</p><p>This option is mainly used to increase performance. Indeed, in some
+cases, the parse tree may be very large, and useless.  Consider again
+the last example: level 2 reads all the words, if the file is very large
+this will create a large parse tree. But it is probably better to
+process each word by calling a function at level 1 on the regular
+expression <code>word</code> and avoid building the parse tree at level 2
+by specifying <code>(discard)</code> for <code>file</code>.
+
+</p><p>The <code>discard</code> option may be combined with <code>short</code> or
+<code>prefer</code> as in <code>(prefer discard)</code>.
+
+</p>
+<hr size="6">
+<a name="SEC16"></a>
+<h2 class="section"> <a href="#TOC16">2.11 Empty string generated twice at level 1</a> </h2>
+
+<p>The RegReg driver verifies that no two empty strings are recognized in
+sequence. If it happens, the entire parser is stopped using the function
+<code>error</code>. (Assumed defined in your Scheme interpreter or by the
+user.)
+
+</p><p>This behavior avoids an infinite loop in the parser; otherwise it would
+loop indefinitely by recognizing the empty string.
+
+</p><p>For example, consider the following description
+
+</p><table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">(RegReg
+  (declare (name twice))
+
+  (level 1 
+    (word   &quot;[A-Za-z]+&quot;)
+    (b      &quot;[ ]+&quot;)
+    (empty  ()))
+
+  (level 2
+    (line (: (+ empty) (+ word (? b))))))
+</pre></td></tr></table>
+</td></tr></table>
+<p>Note: this code is available in file `<tt>twice.reg</tt>' in directory
+`<tt>doc</tt>'.
+
+</p><p>Note the <code>empty</code> token being forced to be recognized more than once
+at level 2 if no word is recognized. (This is a contrived example to
+emphasize the mechanism of infinite loop.)
+
+</p><p>In most cases no problem occurs; for instance &quot;HELLO&quot; is completely
+parsed, &quot;HELLO 9&quot; is partly parsed into <code>(line (((word (&quot;HELLO&quot;))
+(b (&quot; &quot;)))))</code> stopping at '9'. (Note: in this second case it recognized
+the <code>empty</code> token but it is not included in the final result since
+it cannot follow a <code>b</code>.)
+
+</p><p>But a major problem occurs with &quot;9 HELLO&quot;: two <code>empty</code> tokens are
+recognized, which corresponds to two empty strings. This stops the
+parser. It happens since the '9' is not part of any token at level 1;
+the empty strings is recognized; and level 2 asks for another token from
+level 1 due to the <code>+</code> operator. In essence the parser is
+indefinitely stuck on the character '9'.
+
+</p><hr size="6">
+<a name="SEC17"></a>
+<h1 class="chapter"> <a href="#TOC17">3. Generating a parser from a description</a> </h1>
+
+<p>Once a parser description has been built, the <code>RegReg</code> parser
+generator must translate it into some Scheme code. More precisely, this
+translation generates DFAs in the form of a single vector. This vector
+can be used to create a parser using the function <code>make-parser</code>.
+
+</p><p>Let suppose that your parser description is in file `<tt>example1.reg</tt>'.
+The DFAs vector is generated by feeding `<tt>example1</tt>' to
+<code>regreg</code>. 
+
+</p><p>There are two ways to generate the parser: by running a compiled version
+of RegReg, or in a Scheme interpreter. ( We provide the module file
+`<tt>regreg-m1.scm</tt>' to compile `<tt>regreg.scm</tt>' under Bigloo.)  The
+compiled RegReg is much faster, but there is no other benefit.
+
+</p><p>It creates a single file `<tt>example1.scm</tt>' which contains a vector
+named <var>id</var><code>-dfas</code>, where <var>id</var> is the name declared in
+`<tt>example1.reg</tt>'. It can be loaded or copied verbatim into another
+Scheme file to instantiate a parser; more on this in the following
+section.
+
+</p><hr size="6">
+<a name="SEC18"></a>
+<h2 class="section"> <a href="#TOC18">3.1 Running the compiled RegReg</a> </h2>
+
+<p>If you have compiled `<tt>regreg.scm</tt>' into an executable as given by
+`<tt>regreg-m1.scm</tt>' under Bigloo; you generate the parser by the
+command:
+
+</p><table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">prompt&gt; <code>regreg example1</code>
+</pre></td></tr></table>
+</td></tr></table>
+<p>Do not specify the file extension `<tt>.reg</tt>' as it is appended to the
+given file name. The file `<tt>example1.scm</tt>' will be generated.
+Therefore, if you describe the parser with `<tt>f.reg</tt>' do not use the
+file name `<tt>f.scm</tt>' for some other code as this file name is used by
+RegReg to store the compilation of `<tt>f.reg</tt>'.
+
+</p><hr size="6">
+<a name="SEC19"></a>
+<h2 class="section"> <a href="#TOC19">3.2 Running RegReg under a Scheme interpreter</a> </h2>
+
+<p>You may use your favorite Scheme interpreter to generate your
+parser. (RegReg has been tested under Gambit v3.0 and Bigloo v2.5b.)
+
+</p><p>You must load the `<tt>regreg.scm</tt>' code into the interpreter.
+
+</p><p>You simply call the function <code>regreg-file-&gt;scm</code> with input and
+output file names as in
+
+</p><table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">Scheme&gt; (regreg-file-&gt;scm &quot;example1.reg&quot; &quot;example1.scm&quot; #f)
+</pre></td></tr></table>
+</td></tr></table>
+<p>It generates the file `<tt>example1.scm</tt>'.
+
+</p><p>The finite automata, in some serialized form, are displayed on the
+current output port if <code>#t</code> is specified instead of <code>#f</code> as
+the third argument.
+
+</p><hr size="6">
+<a name="SEC20"></a>
+<h2 class="section"> <a href="#TOC20">3.3 Instantiating a parser from a DFAs vector</a> </h2>
+
+<p>The file `<tt>regregDrvr.scm</tt>', the driver, contains the function
+<code>make-parser</code>. It takes three arguments: a function of zero
+argument to read characters from the input, a vector generated by regreg
+and a string. It returns a function of zero argument which embodies the
+complete parser. This function reads the input text, parses it, and
+returns the parse tree. The string is used to initialize the internal
+buffer of the driver. In effect, it is as if the string was the prefix
+of the input. For example, it could be used as the sole input by
+providing a read function that returns the eof object.
+
+</p><p>For example, the following code instantiates a parser from a DFAs vector
+using the Scheme primitive <code>read-char</code> as the function to read
+characters from a string <var>s</var>; and call that function to parse the
+string <var>s</var>. (Note: the function <code>with-input-from-string</code> is
+assumed to exist in your Scheme implementation.)
+
+</p><table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">;; I: s, a string
+;;    na, a vector of DFAs generated by regreg.
+;;
+(define (parse-string s na)
+  (with-input-from-string s
+    (lambda ()
+      (let* ((lex  (make-parser read-char na &quot;&quot;)))
+        (lex)))))
+</pre></td></tr></table>
+</td></tr></table>
+<p>Note: This function <code>parse-string</code> is provided in `<tt>regregDrvr.scm</tt>'.
+
+</p><p>The parsing of the two sentences from the overview chapter can be done
+by calling <code>parse-string</code>: 
+
+</p><table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">(parse-string &quot;There are 6 words in this sentence. A second line.&quot; 
+              example1-dfas)
+</pre></td></tr></table>
+</td></tr></table>
+<hr size="6">
+<a name="SEC21"></a>
+<h1 class="chapter"> <a href="#TOC21">4. Processing the tagged parse tree</a> </h1>
+
+<p>The parser description should specify, at the highest level, at least
+one user defined function to process the resulting tagged parse tree.
+When a user function is called after recognizing a rule, the resulting
+parse tree is passed as an argument. The parse tree contains all
+characters parsed as well as the tags that identified the parts. These
+tags may be implicit as token symbols, or explicit as specified
+by the binding <code>=</code> operator.
+
+</p><p>These functions can process the tagged parse tree as they please, but we
+highly recommend to use the functions presented in this section which
+are defined in `<tt>regregDrvr.scm</tt>'. 
+
+</p><p>Extraction of parts of the parsed tree could be done without the tags,
+but that is not a robust approach. The tags eliminate the needs to keep
+track of the exact position of a part in a tree. In particular, you
+should not rely on the exact locations of sub-parts in the parse tree,
+for example by using <code>list-ref</code>, <code>caddr</code> etc. You should use the
+mechanism of tags. In any case, tags should be the major reason to use
+RegReg.
+
+</p><p>In a parse tree, each implicit or explicit tag forms, with their value,
+a list of two elements. This value is the result of a
+sub-parse. Hereafter, the term <em>value of a tag</em> refers to the
+second element of that list.
+
+</p><hr size="6">
+<a name="SEC22"></a>
+<h2 class="section"> <a href="#TOC22">4.1 The pre-defined parse tree extraction functions</a> </h2>
+
+<p>In most cases, tag values are extracted from the resulting parse
+tree. To that end, some functions are already provided by the RegReg
+package to extract single tag value, multiple tag values, and flattening
+a subtree into a string. They are defined in the Scheme file
+`<tt>regregDrvr.scm</tt>'.
+
+</p><p>It is highly recommended to use these functions to manipulate the parse
+tree. Here is a brief description of these functions:
+
+</p><ol>
+<li><p> The function <code>gstree</code> extracts the value of a single tag from a
+tagged parse tree. It takes two arguments: a symbol--the tag--and
+the tagged parse tree. It returns the value of the first tag by
+traversing the tree from the root to the leafs and from left to right;
+in other words, by searching in-order. In general, the value of a tag is
+a tagged subtree.
+
+</p></li><li><p> The function <code>gstree-all</code> returns a list of values formed by the
+values of all instances of one tag. It takes two arguments, a symbol--
+the tag--and a tagged parse tree. Once the value of a tag is found,
+which is a subtree, it does not search in that subtree for any instances
+of the tag. In other words, all values returned are independent subtrees.
+
+</p></li><li><p> The function <code>tree-&gt;string</code> converts a tree into a string by
+concatenating all strings of the tree, in-order. In other words, it
+returns the complete string parsed into that subtree.
+
+</p></li><li><p> The function <code>gstks</code> is simply the composition of <code>gstree</code> and
+<code>tree-&gt;string</code>; it returns the string value of a tag. In other
+words, it is the string parsed and associated to that tag.
+</p></li></ol>
+
+<p>The following section presents some examples.
+
+</p><hr size="6">
+<a name="SEC23"></a>
+<h2 class="section"> <a href="#TOC23">4.2 Examples of tagged parse tree manipulations</a> </h2>
+
+<p>For the following examples, assume that <code>r</code> is bound to the
+tagged parse tree: (note: this is usually done when the parse tree is
+passed as an argument to a user defined function specified in a rule.)
+
+</p><table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">(text 
+  ((line 
+      (((()      (w ((&quot;Ther&quot;) (l &quot;e&quot;)))) 
+        ((b &quot; &quot;) (w ((&quot;ar&quot;) (l &quot;e&quot;))))
+        ((b &quot; &quot;) (n ((f &quot;6&quot;) ()))) 
+        ((b &quot; &quot;) (w ((&quot;word&quot;) (l &quot;s&quot;)))) 
+        ((b &quot; &quot;) (w ((&quot;i&quot;) (l &quot;n&quot;)))) 
+        ((b &quot; &quot;) (w ((&quot;thi&quot;) (l &quot;s&quot;)))) 
+        ((b &quot; &quot;) (w ((&quot;sentenc&quot;) (l &quot;e&quot;))))) (e &quot;.&quot;))) 
+   (line 
+      ((((b &quot; &quot;) (w (() (l &quot;A&quot;)))) 
+        ((b &quot; &quot;) (w ((&quot;secon&quot;) (l &quot;d&quot;)))) 
+        ((b &quot; &quot;) (w ((&quot;lin&quot;) (l &quot;e&quot;))))) 
+        (e &quot;.&quot;)))))
+</pre></td></tr></table>
+</td></tr></table>
+<p>This is actually the result of parsing the two sentences <code>&quot;There
+are 6 words in this sentence. A second line.&quot;</code> using the parser
+description <code>example1</code>.
+
+</p><p>We present a few examples using the functions defined in
+`<tt>regregDrvr.scm</tt>'.
+
+</p><p>Example 1) The Scheme expression <code>(map tree-&gt;string (gstree-all 'w
+r))</code> returns
+
+</p><table><tr><td>&nbsp;</td><td><pre class="example">(&quot;There&quot; &quot;are&quot; &quot;words&quot; &quot;in&quot; &quot;this&quot; &quot;sentence&quot; &quot;A&quot; &quot;second&quot; &quot;line&quot;)
+</pre></td></tr></table>
+<p>Indeed, the subcall <code>(gstree-all 'w r)</code> has the value
+
+</p><table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">(((&quot;Ther&quot;) (l &quot;e&quot;)) 
+ ((&quot;ar&quot;) (l &quot;e&quot;)) 
+ ((&quot;word&quot;) (l &quot;s&quot;)) 
+ ((&quot;i&quot;) (l &quot;n&quot;)) 
+ ((&quot;thi&quot;) (l &quot;s&quot;)) 
+ ((&quot;sentenc&quot;) (l &quot;e&quot;)) 
+ (() (l &quot;A&quot;)) 
+ ((&quot;secon&quot;) (l &quot;d&quot;)) 
+ ((&quot;lin&quot;) (l &quot;e&quot;)))
+</pre></td></tr></table>
+</td></tr></table>
+<p>and the application of <code>tree-&gt;string</code> on each element converts the
+broken words to strings.
+
+</p><p>Example 2) The following Scheme expression gives all the last letters of
+all the words: <code>(gstree-all 'l r)</code> the result being <code>(&quot;e&quot; &quot;e&quot;
+&quot;s&quot; &quot;n&quot; &quot;s&quot; &quot;e&quot; &quot;A&quot; &quot;d&quot; &quot;e&quot;)</code>.
+
+</p><p>Example 3) The call <code>(gstree 's r)</code> returns <code>#f</code> as there are
+no special characters in these two lines.
+
+</p><p>Example 4) The expression <code>(tree-&gt;string r)</code> returns the complete
+string parsed, that is <code>&quot;There are 6 words in this sentence. A
+second line.&quot;</code>.
+
+</p>
+<hr size="6">
+<a name="SEC24"></a>
+<h1 class="chapter"> <a href="#TOC24">5. Debugging a parser</a> </h1>
+
+<p>The file `<tt>regregDrvr.scm</tt>' defines a macro named <code>drvr:debug-trace</code>
+that can be slightly modified to turn on a detailed trace of the
+running parser. It suffices to change <code>#f</code> to <code>#t</code> right after the
+<code>if</code> to turn on tracing.
+
+</p><p>The trace includes the following information:
+
+</p><ol>
+<li><p> The entry of the parser at each level.
+
+</p></li><li><p> The exit of the parser with its result at each level.
+
+</p></li><li><p> Each character being read and the list of active rules (level 1) before
+reading that character.
+
+</p></li><li><p> Each token being recognized at level n-1 &gt; 0 and the list of active
+rules at level n before it is recognized.
+
+</p></li><li><p> The possible transitions at level n &gt; 1 for each recognized token
+at level n-1.
+</p></li></ol>
+
+<p>The first two pieces of information are simple: They give a nested trace
+of the parser through its levels.
+
+</p><p>The list of active tokens is very instructive as you can observe when a
+rule is no longer recognized for a specific character or token. We
+recommend having the trace active when you design your parser. It
+provides a direct feedback and underscores misunderstood features.
+
+</p><p>The possible transitions at level n&gt;1 are necessarily tokens from level
+n-1. These are possible transitions before the current recognized token
+is applied. If this last recognized token is not in that list, a parsing
+error will immediately occur.
+
+</p><p>Note: the possible transitions for level 1 are not traced as there could
+be a large number of those.
+
+</p><p>As an example, assume the parser description <code>out</code> from the section
+on the <code>&lt;error&gt;</code> token. If the trace is active, the parsing of
+'2034Z .' gives:
+
+</p><br>
+<br>
+<table><tr><td>&nbsp;</td><td><pre class="example">Parser entering level 2
+Parser entering level 1
+Level 1, active rules: (&lt;level-1&gt; dot blank time), read char: #\2
+Level 1, active rules: (time), read char: #\0
+Level 1, active rules: (time), read char: #\3
+Level 1, active rules: (time), read char: #\4
+Level 1, active rules: (time), read char: #\Z
+Level 1 result: (time ((h (&quot;20&quot;)) (m (&quot;34&quot;)) &quot;Z&quot;))
+Level 2, active rules: (&lt;level-2&gt; line), token recognized: time
+Possible transitions (time)
+Parser entering level 1
+Level 1, active rules: (&lt;level-1&gt; dot blank time), read char: #\space
+Level 1, active rules: (blank), read char: #\.
+Level 1 result: (blank (&quot; &quot;))
+Level 2, active rules: (line), token recognized: blank
+Possible transitions (blank)
+Parser entering level 1
+Level 1, active rules: (&lt;level-1&gt; dot blank time), read char: #\.
+Level 1 result: (dot &quot;.&quot;)
+Level 2, active rules: (line), token recognized: dot
+Possible transitions (dot time)
+Level 2 result: (line ((((time ((h (&quot;20&quot;)) (m (&quot;34&quot;)) &quot;Z&quot;)) 
+(blank (&quot; &quot;)))) (dot &quot;.&quot;)))
+</pre></td></tr></table>
+<hr size="6">
+<a name="SEC25"></a>
+<h1 class="chapter"> <a href="#TOC25">6. Elaborate RegReg examples: decoding meteorological bulletins</a> </h1>
+
+<p>Meteorological bulletins are produced and disseminated around the world
+by thousands of centers. They are encoded for succinctness although they
+are read by human on a daily basis.  For example, a Terminal Aeorodrome
+Forecast (TAF) is produced by a meteorologist (a human, not a
+computer!), then either entirely typed by a human or via some computer
+software - in either case some TAFs contain typos and other errors
+which we are trying to recover from. This can be seen by simply scanning
+the thousands of TAFs provided by some agencies (e.g., the U.S. National
+Weather Service). Pilots decoding erroneous TAFs can in many cases make
+sense of them. An automatic decoders should try to do the same. For this
+reason, decoding TAFs is difficult: it should follow the formal
+definition of the lexical syntax of TAFs according to the standards, as
+well as attempt to interpret errors occuring in them.
+
+</p><p>PIREPs are pilot meteorological reports of direct observations from an
+aircraft. They are relayed by land stations. 
+
+</p><p>On the other hand, AMDARs are produced automatically onboard
+aircrafts. They contain observations useful for other pilots, or as
+data points to forecast the weather. Even though they are produced by
+computers, many contain errors. The software written to produce them has
+sometimes been incorrectly programmed. In this case, hundreds of AMDARs
+are incorrectly produced each day. Decoding them is easier than the
+TAFs; yet, an AMDAR decoder should be easily and quickly modifiable to
+adapt it to observed errors. RegReg provides such a facility.
+
+</p><p>In the next subsections we present RegReg parsers to parse and decode these formats.
+
+</p><hr size="6">
+<a name="SEC26"></a>
+<h2 class="section"> <a href="#TOC26">6.1 Decoding Terminal Aeorodrome Forecast (TAF) bulletins</a> </h2>
+
+<p>Terminal Aeorodrome Forecast (TAF) bulletins are produced and
+disseminated by thousands of forecasting centers around the
+world on a daily basis - in the US and Canada they are produced four
+times a day.  A TAF is a forecast of the local weather of an aerodrome for the
+next 24 hours.  Despite the advent of sophisticated coding schemes
+(e.g., XML), the TAFs are still encoded using a scheme dating from the
+1950s. Moreover, most of them are entered manually: they may contain
+human typing errors. They are difficult to parse for these two reasons.
+
+</p><p>We give a brief description of the TAF format and its meaning.  A RegReg
+decoder is then presented for TAFs.  For further information on TAF code
+you can consult the international standard for the TAF code, FM 51-X
+Ext. TAF, in the WMO Manual on Codes, WMO No. 306, volume I.1, part
+A. Some small amendments may have been done by some countries, in
+particular by various U.S. agencies (e.g., the U.S. Navy).
+
+</p><p>The structure of a TAF report is composed of a first global
+forecast followed by a series of sub-forecasts which may be
+further subdivided. This initial forecast must contain an
+interval of valid time and a station-id; it may contain an
+issue time. A sub-forecast, or period, starts with a token of
+the form FMhhmmZ?, where hh is a two digits hour and mm a two
+digits minute (the Z may be missing). This is a time from which
+the following tokens describe a modification of the initial
+forecast.
+
+</p><p>A subdivision of a FM period is started by BECMG, PROBxx or
+TEMPO token (the form 'PROBxx TEMPO' is also possible);
+followed by an interval of time of the form h1h2, where h1 and
+h2 are two digits hour, from h1 until h2. If h2 is smaller then
+h1, h2 refers to the next day.
+
+</p><p>The first period specifies an interval of time, which we refer to
+as the report-interval. But the FM periods do not explicitly
+specifies an interval, only the from time, although the until time
+may be inferred from the following subdivision.
+
+</p><p>Here are two examples of TAF bulletins:
+
+</p><p>A) A TAF from station-id 'KCTB' 
+
+</p><table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">TAF KCTB 072330Z 080024 26019G26KT P6SM SCT100 BKN150
+FM0200 29014KT P6SM SC T100 BKN150 FM1000 35013KT P6SM SCT050
+BKN100 PROB30 1216 3SM -SN BR BKN040 FM1600 34017G26KT P6SM
+SCT070 BKN120
+</pre></td></tr></table>
+</td></tr></table>
+<p>It has the following periods.
+
+</p><ol>
+<li><p>  TAF KCTB 072330Z 080024 26019G26KT P6SM SCT100 BKN150
+</p></li><li><p>  FM0200 29014KT P6SM SC T100 BKN150
+</p></li><li><p>  FM1000 35013KT P6SM SCT050 BKN100 
+</p></li><li><p>  PROB30 1216 3SM -SN BR BKN040 
+</p></li><li><p>  FM1600 34017G26KT P6SM SCT070 BKN120
+</p></li></ol>
+
+<p>B) The following example has been divided in sub-periods on separate
+lines to ease human reading. These are not necessarily so produced
+by the forecasting centers.
+
+</p><table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">   KTEB 212340Z 220024 15008KT P6SM BKN060 OVC090
+   TEMPO 0002 BKN035 BKN070
+   FM0200 12004KT P6SM SCT025 BKN070
+   FM0700 12006KT 5SM -RA SCT015 OVC025
+   TEMPO 0710 2SM SHRA BR BKN010 OVC025
+   FM1200 VRB03KT 1 1/2SM -RA BR BKN009 OVC025
+   FM1500 19005KT P6SM SCT025 BKN070
+   FM2000 22010KT P6SM BKN045 OVC070=  
+</pre></td></tr></table>
+</td></tr></table>
+<p>Here is a RegReg TAF decoder:
+
+</p><table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">(RegReg
+ (declare (name taf))
+
+ (macros
+  (day_interval &quot;{day=[0-9][0-9]}{h1=[0-9][0-9]}{h2=[0-9][0-9]}&quot;
+  (interval    &quot;{h1=[0-9][0-9]}{h2=[0-9][0-9]}&quot;)
+  (issue_time  &quot;[0-9][0-9][0-9][0-9][0-9][0-9]Z?&quot;)
+  (valid_time  &quot;{day=[0-9][0-9]}?{hh=[0-9][0-9]}{mm=[0-9][0-9]}&quot;)
+  (station_id  &quot;[A-Z][A-Z][A-Z][A-Z]&quot;)
+  (_           &quot;[ \\013\\010]+&quot;))
+
+ ;; The issue_time can be missing. In that case, the valid_time
+ ;; has the day of the forecast and the interval in hours.
+
+ ;; Level 1 always succeed, assuming the message to parse does not
+ ;; contain the EOT character. That is, no parse error can occur at this
+ ;; level, since any non-empty sequence of characters is recognized by
+ ;; it (except EOT).
+
+ (level 1
+       (main_period  ((? _) (? &quot;TAF&quot; _) (? (: &quot;COR&quot; &quot;AMD&quot;) _)  station_id _ 
+		      (? issue_time _  (? (: &quot;COR&quot; &quot;AMD&quot;) _) valid_time) 
+		      (? (? (: &quot;COR&quot; &quot;AMD&quot;) _) (? day_interval))))
+       (from       (&quot;FM{hh=[0-9][0-9]}{mm=[0-9][0-9]}Z?&quot;))
+       (tempo      (&quot;TEMPO&quot; (? _) (? interval)))
+       (prob       (&quot;PROB[0-9][0-9]?&quot; _ (? &quot;TEMPO&quot;) (? interval)))
+       (becoming   (&quot;BECMG&quot; (? _ &quot;TEMPO&quot;) (? _) (? interval)))
+       (_           _)
+       (token       &quot;[^=\\013\\010\\003 ]+&quot;)
+       (endMessage  &quot;=&quot;)
+       )
+
+ (level 2
+	(endMessage    endMessage)
+	(main_forecast ((? _) main_period (? _) (* token (? _))))
+	(modification  ((? _) (: tempo becoming prob from) (? _)  (* token (? _))))
+	)
+
+ (level 3
+   (taf (main_forecast (* modification) (? endMessage)) process-taf))
+ )
+</pre></td></tr></table>
+</td></tr></table>
+<p>The general structure of a TAF can be seen at level 3: it is a main
+forecast that may be followed by modifications. It usually end with
+the <code>endMessage</code> token, but this is not always the case as some centers 
+do not produce it. 
+
+</p><p>At level 2, we see that the main forecast is composed of the <code>main_period</code> and the 
+forecast itself which is a list of tokens. A modification is one of the
+sub-forecast <code>tempo</code>, <code>becoming</code>, <code>prob</code>, or <code>tempo</code> header followed
+by the forecast itself in a series of tokens (which may be empty). These should be 
+separated by spaces or newlines, but sometimes they are not due to human errors. Therefore
+we use a conditional space <code>(? _)</code> to catch these errors. Other simple errors are also
+detected, and silently ignored, for example a missing <code>Z</code> for some of the time-stamps.
+
+</p><p>At level 1, the details of each basic token are defined using the macros defined
+in the macro section.
+
+</p><p>There is only one function called after a single TAF has been parsed and
+a parse tree constructed, it is <code>process-taf</code>. This function is not
+presented in this document.
+
+</p><hr size="6">
+<a name="SEC27"></a>
+<h2 class="section"> <a href="#TOC27">6.2 Decoding PIlot REPorts (PIREPs)</a> </h2>
+
+<p>PIlot REPorts are direct meteorological observations reported from aircrafts by pilots.
+For example, they report observed turbulences.
+
+</p><p>The parser description was built according to the formal description
+found on pages 21-31 of AFMAN 15-124. We have also included variations
+of this formal description by analyzing PIREP bulletins from the
+U.S. National Weather Service.
+
+</p><p>The description of the parser is long since it decodes almost every
+piece of data in a PIREP. Here is a (long) list of PIREP examples: 
+
+</p><table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">SUA UA /OV SUA/TM 1116/FL190/TP SW4/SK OVC150-TOP165 CA/TB
+LGT-MOD RA/IC LGT RIME 150-165=
+
+HFF UA /OV SDZ220023/TM 2036/FL080/TP BE35/SK SCT AND BUILDING TO
+THE SOUTH/WX FV05SM HZ/TA 11C/RM SMOOTH RIDE=
+
+FTW UA /OV FTW180010/TM 0018/FL028/TP MO20/IC LGT RIME=
+
+OWB UA /OV OWB/TM 2325/FLDURGD/TP JS32/SK OVC006-TOPUNKN/WX
+FZRA/IC LGT RIME/RM A/C ON ILS RY36 BA POOR=
+
+IND UA /OV VHP350015/TM 2330/FLDURGC/TP C441/SK OVC044 TOPS 090
+HYR LYR ABV/IC NEG=
+
+JBR UA /OV JBR/TM 0025/FLUNKN/TP PA34/SK OVC015/TA FL060 +4/FL015
+-4/IC TRACE=
+
+CYVC UA /OV YVC280020/TM 2323/FLVFR/TP DHC6/IC LGT MX 022/RM
+PTCHY -FZDZ AT BASE OF CLOUD FROM 20W CYVC TO CYVC=
+
+HRO UA /OV HRO150025/TM 0112/FL090/TP AC50/SK IMC/TB LGT/IC LGT
+RIME/RM 145NW MEM OTP AT FL090=
+
+DSM UA /OV DSM/TM 1147/FLUNKN/TP C56X/SK OVCUNKN-TOP038/CLR ABV=
+
+LIT UA /OV LIT/TM 1144/FLUNKN/TP B757/SK OVC-TOP046/IC TRACE/RM
+DURGD=
+
+CYYB UA /OV YYB187015/TM 1140/FL080/TP DH8A/SK XXX OVC 068 CLR
+ABV/IC TR-LGT RIME ICGIC 058-068=
+
+RDG UA /OV RDG/TM 1445/FLUNKN/TP LJ60/SK OVC004/TB NEG BLO 100/IC
+NEG/RM /FM AOO LISTENING/=
+
+RDU UUA /OV RDU010020/TM 1023/FL080/TP PA31/SK IMC/WX +RW/TA
+SFC-035/-1C 040-060/+6/TB LGT MDT CHOP 080/IC MOD CLR SFC-035/RM
+DURGC=
+
+SFB UA /OV SFB/TM 1935/FLUNKN/TP C172/SK 006 OVC/WX 1 1/2SM/RM
+ILS 27R=
+</pre></td></tr></table>
+</td></tr></table>
+<p>The RegReg decoder of PIREPs follows.
+
+</p><table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">;; Notes:
+;;
+;;   - The flight height is in mean sea level (MSL) unless the remarks
+;;     section contains AGL. The remarks section may also contain DURC or
+;;     DURD to specify if it was during Climbing or Descending.
+;;
+;;   - For sky cover: the remarks section may contain IMC; it means
+;;     the aircraft is in clouds.
+
+(RegReg
+   
+   (declare (name pirep))
+   
+   (macros
+    (_         &quot;[ \\010\\013]+&quot;)
+    (cloud     &quot;{shyClear=SKC}|{few=FEW}|{scattered=SCT}|{broken=BKN}|{overcast=OVC}&quot;)
+    (hhh       &quot;[0-9][0-9][0-9]&quot;)
+    (intensity &quot;{trace=TRA?C?E?}|{light=LGT}|{moderate=MOD}|{moderate=MDTR?}|{severe=SEV}|{extreme=EXTRM}|{heavy=HVY}&quot;)
+    (typeIce   &quot;{rime=RIME?}|{clear=CLE?A?R}|{mixed=MI?XE?D?}&quot;)
+    )
+
+   (level 1
+     (_             _)
+     (OV   &quot;/OV&quot;) (TA   &quot;/TA&quot;) (WX   &quot;/WX&quot;) (TM   &quot;/TM&quot;) (FL   &quot;/FL&quot;) (RM   &quot;/RM&quot;)
+     (SK   &quot;/SK&quot;) (TP   &quot;/TP&quot;) (TB   &quot;/TB&quot;) (IC   &quot;/IC&quot;)
+     (header        (&quot;[ ]*{cccc=[A-Z][A-Z][A-Z]}[ ]+&quot; 
+                     (: (= urgent &quot;UUA&quot;) (= routine &quot;UA&quot; ))))
+     ;; The location can be a line.
+     (location      
+      (&quot;/OV&quot;
+       (:
+        ;; First is the most common case, something like: RDU010020
+        ;; The airport/NavaId identifier should come first, but we accept
+        ;; it after the direction and distance specification. Station should
+        ;; usually be three or four letters. Three letters is an airport;
+        ;; whereas four letters is a Navaid.
+        ((: ( _ &quot;{station1=[A-Z]+}({_}?{dir1=[0-9][0-9][0-9]}{dis1=[0-9]+})?&quot;)
+            ( _ &quot;({dir1=[0-9][0-9][0-9]}{dis1=[0-9]+})?{_}?{station1=[A-Z]+}&quot;))
+         ;; It could be a line with two stations, separated by &quot;-&quot; or dots.
+         (? (? _) &quot;(-|\\.+)&quot; 
+            (: ((? _) &quot;{station2=[A-Z]+}({_}?{dir2=[0-9][0-9][0-9]}{dis2=[0-9]+})?&quot;)
+               ((? _) &quot;({dir2=[0-9][0-9][0-9]}{dis2=[0-9]+})?{_}?{station2=[A-Z]+}&quot;))))
+
+        ;; Second case may come from AWN: lat and lon
+        &quot;{_}{lat=[0-9]+}({latN=N}|{latS=S}){_}{lon=[0-9]+}({lonW=W}|{lonE=E})&quot;
+
+        ;; Something rare like RDU APCH RWY 001 100FL
+        &quot;{_}{station1=[A-Z]+}{_}[A-Z]+({_}?[A-Z0-9]+)*&quot;
+        )))
+     (time          &quot;/TM{_}?{TMhh=[0-9][0-9]}{TMmm=[0-9][0-9]}&quot;) ;; Hours minutes
+
+     ;; /FL should not be followed by a space, but we still accept it.
+     (flightLevel   (&quot;/FL&quot; (? _) (: &quot;{FLfrom={hhh}}(-{FLto={hhh}})?&quot;
+                                    &quot;{unknown=UNKN?}&quot; &quot;{FLascent=DURG?C}&quot; 
+                                    &quot;{FLdescent=DURG?D}&quot;)))
+     ;; Type of Aircraft.
+     (typeAC        &quot;/TP{_}?({unknown=UN?KN}|{aircraft=[A-Z][A-Z0-9]+})&quot;)
+
+     ;; A sky cover may contain several layers, each separated by a slash '/'.
+     (skyCover      (&quot;/SK&quot; (? _ )
+                     ((= from cloud) (? (: &quot;-&quot; _) (= to cloud)) 
+                      (? (? _) (= elev (: hhh &quot;UNKN?&quot;)))
+                      (? (? _) (: &quot;-?TOP&quot; &quot;-&quot;) (? _) (: (= top hhh) &quot;UNKN?&quot;)))
+                     (* (? _) &quot;/&quot; (? _)
+                        (cloud (? &quot;-&quot; cloud) (? (: hhh &quot;UNKN&quot;))
+                               (? &quot;-TOP&quot; (: hhh &quot;UNKN&quot;))))))
+
+     ;; The weather section may contain slashes. The visibility may appear
+     ;; anywhere in the section.
+
+     (weather       (&quot;/WX&quot; (? _)
+                     (* (: (= visibility &quot;FV{_}?{Vdis=[0-9]+}(SM)?&quot;)
+                           &quot;F[^V/\\003=]+&quot;
+                           &quot;[^F/\\003=]+&quot;
+                           &quot;/[^RTWI\\003=]&quot;
+                           &quot;/T[^AB\\003=]&quot;
+                           &quot;/I[^C\\003=]&quot;
+                           &quot;/W[^V\\003=]&quot;
+                           &quot;/R[^M\\003=]&quot;
+                           ))
+                     ))
+     (temp          (&quot;/TA{_}?&quot;
+                     (: &quot;UN?KN?&quot;
+                        &quot;{Tminus=M|-}?{Tplus=\\+}?{_}?{Tval=[0-9]+}{_}?{Tcelsius=C}?&quot;)))
+     (wind          &quot;/WV{_}?{WVdir=[0-9][0-9][0-9]}{WVspeed=[0-9][0-9][0-9]?}(KT)?&quot;)
+
+     ;; There may be several layers of turbulences.
+     (turb          (: (= nothing &quot;/TB{_}{noTurbulence=NEG|NIL}&quot;)
+                       (&quot;/TB&quot;
+                        (? _ (= occasional &quot;OCNL&quot;)) 
+                        (? _ &quot;{TBinten1={intensity}}&quot; (? _ (= occasional &quot;OCNL&quot;))
+                           (? &quot;(-|{_}){TBinten2={intensity}}&quot;))
+                        (? _ (= turbType &quot;{smooth=SMO?O?T?H}|{cat=CA?T}|{chop=CHO?P}&quot;))
+                        (? _
+                           (: &quot;(THRU{_}|BL(O|W){_}|SFC({_}TO{_}|-|{_})?){TBto={hhh}}F?L?&quot;
+                              &quot;ABV{_}{TBfrom={hhh}}F?L?&quot; 
+                              &quot;{TBfrom={hhh}}F?L?((-|{_}){TBto={hhh}}F?L?)?&quot;))
+                        )))
+     ;; Similar to turbulences layers, but for icing.
+     (icing         (: (&quot;/IC{_}?{noIcing=(NEG|NIL)}&quot;)
+                       (&quot;/IC&quot; _
+                        (? (= occasional &quot;OCNL{_}&quot;))
+                        &quot;{ICinten1={intensity}}((-|{_}){ICinten2={intensity}})?&quot;
+                        (? _ typeIce) (? _ (: &quot;ICE?&quot; &quot;ICG&quot;))
+                        (? _
+                           (: &quot;(THRU{_}|BL(O|W){_}|SFC({_}TO{_}|-|{_})?){ICto={hhh}}F?L?&quot;
+                              &quot;ABV{_}{ICfrom={hhh}}F?L?&quot; 
+                              &quot;{ICfrom={hhh}}F?L?((-|{_}){ICto={hhh}}F?L?)?&quot;))
+                        )
+                       ))
+     ;; The remarks section may contain slashes. A '=' ends that section.
+     (remarks       (&quot;/RM&quot; (* &quot;\\010|\\013&quot;) (= line &quot;[^\\010\\013\\003=]+&quot;) 
+                     (* (+ &quot;\\010|\\013&quot;) (= line &quot;[^\\010\\013\\003=]+&quot;))
+                     ))
+     ;; If it fails at any point:
+     (any           &quot;[^ \\010\\013\\003/=]+|/&quot;)
+     (endPirep      &quot;=&quot;     (short))
+     (endBulletin   &quot;\\003&quot; (short))
+     )
+
+   (level 2
+     (pirep ((* (: _ any))
+             (*
+              (:
+               (= unrecognized 
+                  (= tag (: OV TA WX TM FL RM SK TP TB IC))
+                  (* (: _ any)))
+               (= header   header            (* (: _ any)))
+               (= location location          (* (: _ any)))
+               (= time     time              (* (: _ any)))
+               (= flightLevel flightLevel (* (: _ any)))
+               (= typeAC  typeAC          (* (: _ any)))
+               (= skyCover skyCover (* (: _ any)))
+               (= weather weather  (* (: _ any)))
+               (= temp    temp     (* (: _ any)))
+               (= wind    wind     (* (: _ any)))
+               (= turb    turb     (* (: _ any)))
+               (= icing   icing    (* (: _ any)))
+               (= remarks remarks  (* (: _ any)))))
+             endPirep
+             (? _))
+            process-pirep
+            )
+     (endBulletin  endBulletin)
+     (&lt;error&gt;      process-pirep-error))
+
+   (level 3
+     (pireps ((+ pirep) (? endBulletin)))))
+</pre></td></tr></table>
+</td></tr></table>	  
+
+<p>The level 3 of the parser simply decodes several PIREPs - it should end
+with a control-code 003, but it may be missing. The level 2 is written in
+such a way that the various small sections of a PIREP can occur in any
+order. This is what the long ':' expression does. Note that the
+<code>any</code> lexem of level 1 is listed after all possible meaningful
+observations. It is therefore recognized only if all others are not -
+which is an almost 'catch all' lexem. This allows many typing errors
+(i.e., PIREPs incorrectly produced) that could not be recognized by the
+other lexems to be parsed by level 1. The lexem <code>any</code> is simply passed over by level 2
+either as full lists (i.e., by <code>(* (: _ any))</code>) or at the end of 
+every possible observations, again as a list of <code>any</code> lexems.
+
+</p><p>There is essentially only one Scheme function called for every PIREP: it
+is function <code>process-pirep</code>. If a PIREP could not be recognized at
+all, the <code>&lt;error&gt;</code> of level two would catch this case and call the
+function <code>process-pirep-error</code>.  These functions are not presented
+in this documentation.
+
+</p><hr size="6">
+<a name="SEC28"></a>
+<h2 class="section"> <a href="#TOC28">6.3 Decoding AMDARs and ACARs</a> </h2>
+
+<p>An Aircraft Meteorological Data Relay (AMDAR) is a weather report
+automatically generated from an aircraft and relayed to a ground
+station. (ASDARs are similar but are transferred via satellites.) AMDARs
+are short reports containing position (i.e., latitute, longitude, and height)
+and observations from onboard instruments, typically wind speed,
+temperature, and turbulence.  They are used as source of data points for
+weather modelling.  The type of the system reporting the information is
+also provided.  AMDARs, ACARs, and AIREPs have very similar encodings. The
+following decoders actually covers some ACARs encoding as it decode
+&quot;section 3&quot;. 
+
+</p><p>Here are a few examples of AMDAR reports:
+
+</p><table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">LVR EU5191 0435N 07318W 062322 F350 MS414 224/025 TB0 S011=
+DES EU6287 4143N 01235E 041700 F044 PS042 /// 014/007 TB0 S031
+   333 F044 VG008=
+DES AU0040 3220S 15058E 070021 F336 MS468 248/032 TB0 S031
+    333 F336 VG015=
+LVR AU0032 4957N 01739E 070016 F330 MS584 243/087 TB0 S031
+    333 F330 VG007=
+</pre></td></tr></table>
+</td></tr></table>
+<p>The following decoder can process several AMDARs and ACARs.
+
+</p><table><tr><td>&nbsp;</td><td><table class="cartouche" border="1"><tr><td>
+<pre class="example">(RegReg
+   (declare (name amdar))
+ 
+   (macros
+      (_            &quot;[ \\013\\010\\009]+&quot;)
+      (dd           &quot;({val=[0-9][0-9][0-9]?}|///?)&quot;)
+      (nl           &quot;[ \\013]*\\010[ \\013]*&quot;)
+      (GGgg         ((= hh &quot;[0-9][0-9]&quot;) (= mm &quot;[0-9][0-9]&quot;)))
+      (YYGG         ((= dd &quot;[0-9][0-9]&quot;) (= hh &quot;[0-9][0-9]&quot;)))
+      (YYGGgg       ((= dd &quot;[0-9][0-9]&quot;) (= hh &quot;[0-9][0-9]&quot;) (= mm &quot;[0-9][0-9]&quot;)))
+      ;; Aircraft identifier
+      (aircraft-id  &quot;{aircraft-id=[0-9A-Z]+}&quot;)      
+      (phase        (= phase (: &quot;LVR&quot; &quot;ASC&quot; &quot;DES&quot; &quot;LVW&quot; &quot;UNS&quot; &quot;///&quot;)))
+      (lat          &quot;{latV=[0-9][0-9][0-9][0-9]}({north=N}|{south=S})&quot;)
+      (lon          &quot;{lonV=[0-9][0-9][0-9][0-9][0-9]}({west=W}|{east=E})&quot;)
+      ;; height in hundreds of feet
+      (FL           &quot;({pos=F}|{neg=A}){Fval=[0-9]+}&quot;) 
+      ;; temp dew point in tenths of a degree Celsius
+      (tempDewPoint &quot;({TDpos=PS?}|{TDneg=MS?}){TDval=[0-9]+}&quot;) 
+      (temp         &quot;({Tpos=PS?}|{Tneg=MS?}){Tval=[0-9]+}&quot;)
+      (relHumidity  &quot;{relH=[0-9]+}|//+&quot;)   ;; relative humidity in percent
+      (wind         &quot;({Wdir=[0-9][0-9][0-9]}|///)/({Wspeed=[0-9][0-9]+}|///?)&quot;) 
+      (TBBA         (: &quot;TB{turbVal=0|1|2|3|/}&quot; &quot;///&quot;)) ;; Turbulence
+      ;; Type navigation, Type system, Temperature precision 
+      (Ss1s2s3      &quot;S{typeNav=[0-1]}{typeSys=[0-5]}{tempPrec=[0-1]}&quot;) 
+      (Fhdhdhd    &quot;F({presFL=[0-9]+}|/+)&quot;) ;; Acars, Pressure altitude in hundreds of feet
+      (VGfgfgfg   &quot;VG({vertGust=[0-9]+}|/+)&quot;) ;; Acars, vertical gust
+      )
+
+   (level 1
+     (section1    ((? _) &quot;AMDAR&quot; (? _ YYGG) _))
+     (section2    ((= id ((? phase _) (? aircraft-id _) 
+                          lat (? _) lon _ 
+                          (= time (: YYGGgg GGgg)) (? _ (: FL &quot;///+&quot;))))
+                   (? _)
+                   (= syg 
+                      (? temp (? _ (: &quot;///&quot; tempDewPoint relHumidity)))
+                      (? _ (: wind &quot;////+&quot;)))
+                   (? _ TBBA)   (? _ Ss1s2s3)))
+     (section3    (= acars-section (&quot;333&quot; _ Fhdhdhd _ VGfgfgfg)))
+     (amdar_nil   ((? _) &quot;NIL&quot; (? _)))
+     (endBulletin &quot;\\003&quot;)
+     (endMessage  &quot;=&quot;)
+     (_           _)
+     )
+
+   (level 2 
+      (amdar       ((? _) section2 (? _ section3) (? _) endMessage (? _))
+               process-amdar)
+      (section1    section1)
+      (amdar_nil   (amdar_nil (? endMessage)))
+      (_           _)
+      (endBulletin endBulletin)
+      (&lt;error&gt; process-amdar-error)
+      )
+   
+   (level 3 
+      (amdars ((? section1) (* (: amdar amdar_nil)) (? _) (? endBulletin))))
+)
+</pre></td></tr></table>
+</td></tr></table>
+
+<hr size="6">
+<a name="SEC29"></a>
+<h1 class="chapter"> <a href="#TOC29">7. Acknowledgements</a> </h1>
+
+<p>The implementation is based on Dube and Feeley's paper
+&quot;Efficiently building a parse tree from a regular expression&quot;, Acta
+Informatica, 37(2):121-144, December 2000. The technique has been
+modified to insert tags in the parse tree.
+
+</p><p>This work was done at FNMOC (Fleet Numerical Meteorology and
+Oceanography Center) for the US Navy. FNMOC uses RegReg to decode
+meteorological bulletins.
+
+</p><p>This documentation was last modified in October 2006.
+</p>
+
+
+<hr size="1">
+<p>
+ <font size="-1">
+  This document was generated by <em>Mario Latendresse</em> on <em>October, 22 2006</em> using <a href="http://texi2html.cvshome.org/"><em>texi2html 1.70</em></a>.
+ </font>
+
+</p>
+</body>
+</html>
